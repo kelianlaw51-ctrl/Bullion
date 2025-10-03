@@ -1,0 +1,25 @@
+{
+  "brand": {
+    "name": "Bullion Courier"
+  },
+  "hero": {
+    "title": "Reliable delivery. Real-time tracking.",
+    "subtitle": "Track your parcel in seconds."
+  },
+  "cta": {
+    "get_quote": "Get a quote",
+    "schedule": "Schedule pickup",
+    "track": "Track parcel"
+  },
+  "nav": {
+    "home": "Home",
+    "tracking": "Tracking",
+    "quote": "Get Quote",
+    "schedule": "Schedule Pickup",
+    "about": "About",
+    "contact": "Contact",
+    "coverage": "Coverage",
+    "privacy": "Privacy Policy",
+    "dashboard": "Dashboard"
+  }
+}
