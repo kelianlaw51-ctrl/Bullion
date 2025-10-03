@@ -1,0 +1,181 @@
+// Prisma schema for Bullion Courier MVP
+// DB: PostgreSQL (set DATABASE_URL in .env.local)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ServiceType {
+  same_day
+  next_day
+  international
+}
+
+enum Currency {
+  EUR
+  USD
+}
+
+enum PackagingType {
+  CRATE
+  PALLET
+  BOX
+  OTHER
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  shipments Shipment[]
+  quotes    Quote[]
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postcode   String
+  country    String   // ISO-3166-1 alpha-2 (e.g., DE, US)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  // Relations
+  shipmentsFrom Shipment[] @relation("FromAddress")
+  shipmentsTo   Shipment[] @relation("ToAddress")
+  quotesFrom    Quote[]    @relation("QuoteFrom")
+  quotesTo      Quote[]    @relation("QuoteTo")
+}
+
+model Quote {
+  id             String      @id @default(cuid())
+  user           User?       @relation(fields: [userId], references: [id])
+  userId         String?
+  service        ServiceType
+  fromAddress    Address     @relation("QuoteFrom", fields: [fromAddressId], references: [id])
+  fromAddressId  String
+  toAddress      Address     @relation("QuoteTo", fields: [toAddressId], references: [id])
+  toAddressId    String
+  weightKg       Float
+  dimSumM        Float       // sum of L+W+H in meters
+  // Price proposal (optional at quote time)
+  amountMinor    Int?
+  currency       Currency?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  // If accepted, link to shipment (1-1)
+  shipment       Shipment?    @relation("QuoteShipment")
+}
+
+model Rate {
+  id          String      @id @default(cuid())
+  service     ServiceType @unique
+  rateMinor   Int         // e.g., 999 for 9.99
+  currency    Currency
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model StatusUpdate {
+  id          String         @id @default(cuid())
+  shipment    Shipment       @relation(fields: [shipmentId], references: [id])
+  shipmentId  String
+  status      ShipmentStatus
+  timestamp   DateTime       @default(now())
+  notes       String?
+
+  @@index([shipmentId])
+}
+
+model Shipment {
+  id             String      @id @default(cuid())
+  trackingCode   String      @unique
+  user           User?       @relation(fields: [userId], references: [id])
+  userId         String?
+  service        ServiceType
+  fromAddress    Address     @relation("FromAddress", fields: [fromAddressId], references: [id])
+  fromAddressId  String
+  toAddress      Address     @relation("ToAddress", fields: [toAddressId], references: [id])
+  toAddressId    String
+  weightKg       Float
+  dimSumM        Float
+  // Final price (required)
+  amountMinor    Int
+  currency       Currency
+  status         ShipmentStatus @default(PENDING)
+  isOnHold       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  // Backlink to quote if created from one (1-1)
+  quote          Quote?       @relation("QuoteShipment", fields: [quoteId], references: [id])
+  quoteId        String?      @unique
+
+  // Optional contact details (sender/recipient)
+  senderContactName    String?
+  senderPhone          String?
+  recipientContactName String?
+  recipientPhone       String?
+
+  // International/customs details (optional)
+  declaredValueMinor   Int?
+  declaredCurrency     Currency?
+  contentsDescription  String?
+  hsCode               String?
+  incoterm             String? // e.g., DDP, DAP
+
+  // Business details
+  shipperCompany       String?
+  shipperEmail         String?
+  shipperEori          String?
+  consigneeCompany     String?
+  consigneeEmail       String?
+  consigneeEinTaxId    String?
+
+  // Scheduling & packaging
+  pickupDate           DateTime?
+  expectedDeliveryDate DateTime?
+  numberOfPieces       Int?
+  packagingType        PackagingType?
+  countryOfOrigin      String?
+  crates               Json?
+  statusUpdates        StatusUpdate[]
+}
+
+enum ShipmentStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  ON_HOLD
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PickupStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model PickupRequest {
+  id          String       @id @default(cuid())
+  service     ServiceType
+  sender      String
+  recipient   String
+  pickupDate  DateTime
+  pickupTime  String
+  weightKg    Float
+  dimSumM     Float?
+  notes       String?
+  status      PickupStatus  @default(PENDING)
+  createdAt   DateTime      @default(now())
+}
